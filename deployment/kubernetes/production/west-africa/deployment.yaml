@@ -1,0 +1,501 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webwaka-agriculture-backend
+  namespace: webwaka-production
+  labels:
+    app: webwaka-agriculture
+    component: backend
+    region: west-africa
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: webwaka-agriculture
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: webwaka-agriculture
+        component: backend
+        region: west-africa
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      # African infrastructure optimizations
+      nodeSelector:
+        webwaka.africa/region: west-africa
+        webwaka.africa/network-tier: high-bandwidth
+      
+      # Tolerations for African infrastructure
+      tolerations:
+      - key: "webwaka.africa/power-unstable"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      - key: "webwaka.africa/network-limited"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      
+      # Service account for RBAC
+      serviceAccountName: webwaka-agriculture
+      
+      # Init container for database migrations
+      initContainers:
+      - name: migrate-database
+        image: ghcr.io/webwaka/agriculture:latest-backend
+        command: ["python", "-m", "alembic", "upgrade", "head"]
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: webwaka-database
+              key: url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: webwaka-redis
+              key: url
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "200m"
+      
+      containers:
+      - name: backend
+        image: ghcr.io/webwaka/agriculture:latest-backend
+        imagePullPolicy: Always
+        
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        
+        # Environment variables for African deployment
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: AFRICAN_DEPLOYMENT
+          value: "true"
+        - name: REGION
+          value: "west-africa"
+        - name: BANDWIDTH_OPTIMIZATION
+          value: "true"
+        - name: MOBILE_FIRST
+          value: "true"
+        - name: CULTURAL_ADAPTATION
+          value: "true"
+        - name: OFFLINE_SYNC_ENABLED
+          value: "true"
+        
+        # Database configuration
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: webwaka-database
+              key: url
+        - name: DATABASE_POOL_SIZE
+          value: "10"
+        - name: DATABASE_MAX_OVERFLOW
+          value: "20"
+        
+        # Redis configuration
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: webwaka-redis
+              key: url
+        - name: REDIS_MAX_CONNECTIONS
+          value: "50"
+        
+        # Security configuration
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: webwaka-secrets
+              key: secret-key
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: webwaka-secrets
+              key: jwt-secret
+        
+        # African cultural configuration
+        - name: SUPPORTED_LANGUAGES
+          value: "en,sw,ha,yo,ig,am,fr,ar"
+        - name: DEFAULT_LANGUAGE
+          value: "en"
+        - name: CULTURAL_CALENDAR_ENABLED
+          value: "true"
+        - name: TRADITIONAL_KNOWLEDGE_ENABLED
+          value: "true"
+        
+        # Monitoring and observability
+        - name: PROMETHEUS_ENABLED
+          value: "true"
+        - name: JAEGER_ENABLED
+          value: "true"
+        - name: SENTRY_DSN
+          valueFrom:
+            secretKeyRef:
+              name: webwaka-monitoring
+              key: sentry-dsn
+        
+        # File storage configuration
+        - name: STORAGE_BACKEND
+          value: "s3"
+        - name: AWS_S3_BUCKET
+          value: "webwaka-agriculture-west-africa"
+        - name: AWS_S3_REGION
+          value: "af-south-1"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: webwaka-storage
+              key: access-key-id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: webwaka-storage
+              key: secret-access-key
+        
+        # Resource limits optimized for African infrastructure
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+            ephemeral-storage: "1Gi"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+            ephemeral-storage: "2Gi"
+        
+        # Health checks optimized for African networks
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+          successThreshold: 1
+        
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        
+        # Startup probe for slow African networks
+        startupProbe:
+          httpGet:
+            path: /health/startup
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+          successThreshold: 1
+        
+        # Volume mounts
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+        - name: logs
+          mountPath: /app/logs
+        - name: uploads
+          mountPath: /app/uploads
+        - name: cultural-data
+          mountPath: /app/cultural-data
+          readOnly: true
+        
+        # Security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+            - ALL
+      
+      # Volumes
+      volumes:
+      - name: config
+        configMap:
+          name: webwaka-agriculture-config
+      - name: logs
+        emptyDir: {}
+      - name: uploads
+        emptyDir: {}
+      - name: cultural-data
+        configMap:
+          name: webwaka-cultural-data
+      
+      # DNS configuration for African networks
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: timeout
+          value: "10"
+        - name: attempts
+          value: "3"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webwaka-agriculture-frontend
+  namespace: webwaka-production
+  labels:
+    app: webwaka-agriculture
+    component: frontend
+    region: west-africa
+    version: v1
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: webwaka-agriculture
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: webwaka-agriculture
+        component: frontend
+        region: west-africa
+        version: v1
+    spec:
+      # African infrastructure optimizations
+      nodeSelector:
+        webwaka.africa/region: west-africa
+        webwaka.africa/network-tier: high-bandwidth
+      
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      
+      containers:
+      - name: frontend
+        image: ghcr.io/webwaka/agriculture:latest-frontend
+        imagePullPolicy: Always
+        
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        
+        # Environment variables for African deployment
+        env:
+        - name: NGINX_WORKER_PROCESSES
+          value: "2"
+        - name: NGINX_WORKER_CONNECTIONS
+          value: "1024"
+        - name: NGINX_KEEPALIVE_TIMEOUT
+          value: "65"
+        - name: REGION
+          value: "west-africa"
+        
+        # Resource limits optimized for African infrastructure
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+            ephemeral-storage: "512Mi"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+            ephemeral-storage: "1Gi"
+        
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        # Volume mounts
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+          readOnly: true
+        - name: cultural-assets
+          mountPath: /usr/share/nginx/html/cultural-assets
+          readOnly: true
+        - name: locales
+          mountPath: /usr/share/nginx/html/locales
+          readOnly: true
+        
+        # Security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+            - ALL
+      
+      # Volumes
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: webwaka-nginx-config
+      - name: cultural-assets
+        configMap:
+          name: webwaka-cultural-assets
+      - name: locales
+        configMap:
+          name: webwaka-locales
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webwaka-agriculture-backend
+  namespace: webwaka-production
+  labels:
+    app: webwaka-agriculture
+    component: backend
+    region: west-africa
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: 8000
+    protocol: TCP
+    name: https
+  selector:
+    app: webwaka-agriculture
+    component: backend
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webwaka-agriculture-frontend
+  namespace: webwaka-production
+  labels:
+    app: webwaka-agriculture
+    component: frontend
+    region: west-africa
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: 80
+    protocol: TCP
+    name: https
+  selector:
+    app: webwaka-agriculture
+    component: frontend
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: webwaka-agriculture
+  namespace: webwaka-production
+  labels:
+    app: webwaka-agriculture
+    region: west-africa
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+spec:
+  tls:
+  - hosts:
+    - agriculture-west.webwaka.africa
+    - api-west.webwaka.africa
+    secretName: webwaka-agriculture-tls
+  rules:
+  - host: agriculture-west.webwaka.africa
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: webwaka-agriculture-frontend
+            port:
+              number: 80
+  - host: api-west.webwaka.africa
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: webwaka-agriculture-backend
+            port:
+              number: 80
+

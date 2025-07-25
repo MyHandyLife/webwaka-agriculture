@@ -1,0 +1,173 @@
+# WebWaka Agriculture Backend Dockerfile
+# Optimized for African infrastructure deployment
+
+FROM python:3.11-slim as base
+
+# Set environment variables for African optimization
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies optimized for African deployment
+RUN apt-get update && apt-get install -y \
+    # Essential system packages
+    curl \
+    wget \
+    git \
+    build-essential \
+    # Database and connectivity
+    libpq-dev \
+    # Image processing for agricultural photos
+    libjpeg-dev \
+    libpng-dev \
+    # Geospatial support for farm mapping
+    gdal-bin \
+    libgdal-dev \
+    # Compression for bandwidth optimization
+    zlib1g-dev \
+    # Cleanup to reduce image size
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create application user for security
+RUN groupadd -r webwaka && useradd -r -g webwaka webwaka
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+COPY requirements-prod.txt .
+
+# Install Python dependencies with African optimization
+RUN pip install --no-cache-dir -r requirements-prod.txt
+
+# Copy application code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/uploads /app/static \
+    && chown -R webwaka:webwaka /app
+
+# Copy African-specific configuration
+COPY deployment/config/african-regions.json /app/config/
+COPY deployment/config/cultural-calendars.json /app/config/
+COPY deployment/config/traditional-knowledge.json /app/config/
+
+# Set up African timezone support
+RUN apt-get update && apt-get install -y tzdata \
+    && ln -sf /usr/share/zoneinfo/Africa/Lagos /etc/localtime \
+    && echo "Africa/Lagos" > /etc/timezone \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Health check optimized for African networks
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Switch to non-root user
+USER webwaka
+
+# Expose port
+EXPOSE 8000
+
+# Production startup command with African optimizations
+CMD ["uvicorn", "app.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--workers", "4", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--access-log", \
+     "--log-level", "info", \
+     "--timeout-keep-alive", "30", \
+     "--timeout-graceful-shutdown", "30"]
+
+# Multi-stage build for production optimization
+FROM base as production
+
+# Copy only necessary files for production
+COPY --from=base /app /app
+COPY --from=base /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=base /usr/local/bin /usr/local/bin
+
+# African infrastructure optimizations
+ENV AFRICAN_DEPLOYMENT=true \
+    BANDWIDTH_OPTIMIZATION=true \
+    OFFLINE_SYNC_ENABLED=true \
+    MOBILE_FIRST=true \
+    CULTURAL_ADAPTATION=true
+
+# Set resource limits for African infrastructure
+ENV UVICORN_WORKERS=2 \
+    UVICORN_MAX_REQUESTS=1000 \
+    UVICORN_MAX_REQUESTS_JITTER=100 \
+    UVICORN_TIMEOUT_KEEP_ALIVE=30
+
+# Database connection optimization for African networks
+ENV DB_POOL_SIZE=5 \
+    DB_MAX_OVERFLOW=10 \
+    DB_POOL_TIMEOUT=30 \
+    DB_POOL_RECYCLE=3600
+
+# Redis configuration for African deployment
+ENV REDIS_MAX_CONNECTIONS=20 \
+    REDIS_RETRY_ON_TIMEOUT=true \
+    REDIS_SOCKET_KEEPALIVE=true \
+    REDIS_SOCKET_KEEPALIVE_OPTIONS={}
+
+# File upload optimization for mobile networks
+ENV MAX_UPLOAD_SIZE=10485760 \
+    UPLOAD_COMPRESSION=true \
+    IMAGE_OPTIMIZATION=true \
+    THUMBNAIL_GENERATION=true
+
+# Logging configuration for African deployment
+ENV LOG_LEVEL=INFO \
+    LOG_FORMAT=json \
+    LOG_ROTATION=daily \
+    LOG_RETENTION=30
+
+# Security configuration
+ENV SECURITY_SECRET_KEY_FILE=/run/secrets/secret_key \
+    CORS_ORIGINS="https://*.webwaka.africa,https://*.webwaka.com" \
+    TRUSTED_HOSTS="*.webwaka.africa,*.webwaka.com"
+
+# African cultural and language support
+ENV SUPPORTED_LANGUAGES="en,sw,ha,yo,ig,am,fr,ar" \
+    DEFAULT_LANGUAGE=en \
+    CULTURAL_CALENDAR_ENABLED=true \
+    TRADITIONAL_KNOWLEDGE_ENABLED=true
+
+# Monitoring and observability
+ENV PROMETHEUS_ENABLED=true \
+    JAEGER_ENABLED=true \
+    SENTRY_ENABLED=true \
+    HEALTH_CHECK_ENABLED=true
+
+# Backup and disaster recovery
+ENV BACKUP_ENABLED=true \
+    BACKUP_SCHEDULE="0 2 * * *" \
+    BACKUP_RETENTION=30 \
+    DISASTER_RECOVERY_ENABLED=true
+
+WORKDIR /app
+USER webwaka
+
+# Final health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health/ready || exit 1
+
+# Production command with full optimization
+CMD ["python", "-m", "uvicorn", "app.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--workers", "${UVICORN_WORKERS}", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--max-requests", "${UVICORN_MAX_REQUESTS}", \
+     "--max-requests-jitter", "${UVICORN_MAX_REQUESTS_JITTER}", \
+     "--timeout-keep-alive", "${UVICORN_TIMEOUT_KEEP_ALIVE}", \
+     "--access-log", \
+     "--log-config", "/app/config/logging.json"]
+
